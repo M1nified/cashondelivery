@@ -56,11 +56,6 @@ class CashOnDelivery extends PaymentModule
 			$this->{$propertyName} = Configuration::get($configKey);
 		}
 		
-		// print("fees");
-		// var_dump($this->feeMin);
-		// var_dump($this->feeMax);
-		// var_dump($this->feePerc);
-
 		/* For 1.4.3 and less compatibility */
 		$updateConfig = array('PS_OS_CHEQUE', 'PS_OS_PAYMENT', 'PS_OS_PREPARATION', 'PS_OS_SHIPPING', 'PS_OS_CANCELED', 'PS_OS_REFUND', 'PS_OS_ERROR', 'PS_OS_OUTOFSTOCK', 'PS_OS_BANKWIRE', 'PS_OS_PAYPAL', 'PS_OS_WS_PAYMENT');
 		if (!Configuration::get('PS_OS_PAYMENT'))
@@ -265,7 +260,6 @@ public function displayForm()
         $message = null, $extra_vars = array(), $currency_special = null, $dont_touch_amount = false,
         $secure_key = false, Shop $shop = null)
     {
-			error_log("validateOrder() BEGIN\n", 3, __DIR__."/debug_cod.log");
 
         $this->context->cart = new Cart($id_cart);
         $this->context->customer = new Customer($this->context->cart->id_customer);
@@ -803,13 +797,11 @@ public function displayForm()
             } // End foreach $order_detail_list
             // Use the last order as currentOrder
             $this->currentOrder = (int)$order->id;
-			error_log("validateOrder() will return true\n", 3, __DIR__."/debug_cod.log");
 						
             return true;
         }
         else
         {
-			error_log("validateOrder() will die\n", 3, __DIR__."/debug_cod.log");
             $error = Tools::displayError('Cart cannot be loaded or an order has already been placed using this cart');
             Logger::addLog($error, 4, '0000001', 'Cart', intval($this->context->cart->id));
             die($error);
@@ -818,7 +810,6 @@ public function displayForm()
 
 	public function countMyFee($order_total)
 	{
-		error_log("\$order_total is $order_total\n", 3, __DIR__."/debug_countMyFee.log");
 		$offset = $this->feePerc !== false ? round($this->feePerc * $order_total) : $order_total;
 		if($this->feeMin !== false){
 			$offset = max(array($this->feeMin,$offset));
