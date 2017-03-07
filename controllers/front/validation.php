@@ -52,11 +52,22 @@ class CashondeliveryValidationModuleFrontController extends ModuleFrontControlle
 		if (!Validate::isLoadedObject($customer))
 			Tools::redirectLink(__PS_BASE_URI__.'order.php?step=1');
 
+		error_log("Before Tools::getValue('confirm')\n", 3, __DIR__."/debug.log");
 		if (Tools::getValue('confirm'))
 		{
+			$cod = new CashOnDelivery();
+			error_log("Tools::getValue('confirm') is true\n", 3, __DIR__."/debug.log");
 			$customer = new Customer((int)$this->context->cart->id_customer);
 			$total = $this->context->cart->getOrderTotal(true, Cart::BOTH);
-			$this->module->validateOrder((int)$this->context->cart->id, Configuration::get('PS_OS_PREPARATION'), $total, $this->module->displayName, null, array(), null, false, $customer->secure_key);
+			$total = $total + $cod->countMyFee($total);
+			error_log("\$total is $total\n", 3, __DIR__."/debug.log");
+			try{
+				$validationResult = $this->module->validateOrder((int)$this->context->cart->id, Configuration::get('PS_OS_PREPARATION'), $total, $this->module->displayName, null, array(), null, false, $customer->secure_key);
+				error_log("\$validationResult is ".print_r($validationResult,true)."\n", 3, __DIR__."/debug.log");
+			}catch(Exception $e){
+				error_log("EXCEPTION validateOrder(): ".$e->getMessage(), 3, __DIR__."/debug.log");
+			}
+			error_log("END of block ( before redirectLink() ): Tools::getValue('confirm')\n", 3, __DIR__."/debug.log");
 			Tools::redirectLink(__PS_BASE_URI__.'order-confirmation.php?key='.$customer->secure_key.'&id_cart='.(int)$this->context->cart->id.'&id_module='.(int)$this->module->id.'&id_order='.(int)$this->module->currentOrder);
 		}
 	}
@@ -68,8 +79,11 @@ class CashondeliveryValidationModuleFrontController extends ModuleFrontControlle
 	{
 		parent::initContent();
 
+		$cod = new CashOnDelivery();
+		$total = $this->context->cart->getOrderTotal(true, Cart::BOTH) + $cod->countMyFee($total);
+
 		$this->context->smarty->assign(array(
-			'total' => $this->context->cart->getOrderTotal(true, Cart::BOTH),
+			'total' => $total,
 			'this_path' => $this->module->getPathUri(),//keep for retro compat
 			'this_path_cod' => $this->module->getPathUri(),
 			'this_path_ssl' => Tools::getShopDomainSsl(true, true).__PS_BASE_URI__.'modules/'.$this->module->name.'/'
