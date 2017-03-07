@@ -46,6 +46,21 @@ class CashOnDelivery extends PaymentModule
 		$this->displayName = $this->l('Cash on delivery (COD)');
 		$this->description = $this->l('Accept cash on delivery payments');
 
+		$this->configKeys = array(
+			'COD_FEE_MIN' => 'feeMin',
+			'COD_FEE_MAX' => 'feeMax',
+			'COD_FEE_PERC' => 'feePerc'
+		);
+		foreach($this->configKeys as $configKey => $propertyName)
+		{
+			$this->{$propertyName} = Configuration::get($configKey);
+		}
+		
+		// print("fees");
+		// var_dump($this->feeMin);
+		// var_dump($this->feeMax);
+		// var_dump($this->feePerc);
+
 		/* For 1.4.3 and less compatibility */
 		$updateConfig = array('PS_OS_CHEQUE', 'PS_OS_PAYMENT', 'PS_OS_PREPARATION', 'PS_OS_SHIPPING', 'PS_OS_CANCELED', 'PS_OS_REFUND', 'PS_OS_ERROR', 'PS_OS_OUTOFSTOCK', 'PS_OS_BANKWIRE', 'PS_OS_PAYPAL', 'PS_OS_WS_PAYMENT');
 		if (!Configuration::get('PS_OS_PAYMENT'))
@@ -60,6 +75,126 @@ class CashOnDelivery extends PaymentModule
 			return false;
 		return true;
 	}
+
+	public function uninstall()
+	{
+		foreach($this->configKeys as $configKey => $propertyName)
+			if(!Configuration::deleteByName($configKey))
+				return false;
+
+		if (!parent::uninstall())
+			return false;
+
+		return true;
+	}
+
+	public function getContent()
+{
+    $output = null;
+ 
+    if (Tools::isSubmit('submit'.$this->name))
+    {
+			$count_deteled=0;
+			$count_updated=0;
+			foreach($this->configKeys as $configKey => $propertyName)
+			{
+				$configValue = strval(Tools::getValue($configKey));
+				if(!$configValue || empty($configValue) || !Validate::isGenericName($configValue))
+				{
+					Configuration::deleteByName($configKey);
+					$this->{$propertyName} = false;
+					$count_deteled++;
+				}
+				else
+				{
+					Configuration::updateValue($configKey,$configValue);
+					$this->{$propertyName} = $configValue;
+					$count_updated++;
+				}
+			}
+			if($count_deteled)
+				$output .= $this->displayConfirmation($this->l("Deleted ($count_deteled) values."));
+			if($count_updated)
+				$output .= $this->displayConfirmation($this->l("Updated ($count_updated) values."));
+    }
+    return $output.$this->displayForm();
+}
+
+public function displayForm()
+{
+    // Get default language
+    $default_lang = (int)Configuration::get('PS_LANG_DEFAULT');
+     
+    // Init Fields form array
+    $fields_form[0]['form'] = array(
+        'legend' => array(
+            'title' => $this->l('Cash On Delivery Settings'),
+        ),
+        'input' => array(
+            array(
+                'type' => 'text',
+                'label' => $this->l('Minimum fee'),
+                'name' => 'COD_FEE_MIN',
+                'size' => 20,
+                'required' => false,
+            ),
+            array(
+                'type' => 'text',
+                'label' => $this->l('Maximum fee'),
+                'name' => 'COD_FEE_MAX',
+                'size' => 20,
+                'required' => false
+            ),
+            array(
+                'type' => 'text',
+                'label' => $this->l('Fee in percent of total value, from 0 to 1'),
+                'name' => 'COD_FEE_PERC',
+                'size' => 20,
+                'required' => false
+            )
+        ),
+        'submit' => array(
+            'title' => $this->l('Save'),
+            'class' => 'btn btn-default'
+        )
+    );
+     
+    $helper = new HelperForm();
+     
+    // Module, token and currentIndex
+    $helper->module = $this;
+    $helper->name_controller = $this->name;
+    $helper->token = Tools::getAdminTokenLite('AdminModules');
+    $helper->currentIndex = AdminController::$currentIndex.'&configure='.$this->name;
+     
+    // Language
+    $helper->default_form_language = $default_lang;
+    $helper->allow_employee_form_lang = $default_lang;
+     
+    // Title and toolbar
+    $helper->title = $this->displayName;
+    $helper->show_toolbar = true;        // false -> remove toolbar
+    $helper->toolbar_scroll = true;      // yes - > Toolbar is always visible on the top of the screen.
+    $helper->submit_action = 'submit'.$this->name;
+    $helper->toolbar_btn = array(
+        'save' =>
+        array(
+            'desc' => $this->l('Save'),
+            'href' => AdminController::$currentIndex.'&configure='.$this->name.'&save'.$this->name.
+            '&token='.Tools::getAdminTokenLite('AdminModules'),
+        ),
+        'back' => array(
+            'href' => AdminController::$currentIndex.'&token='.Tools::getAdminTokenLite('AdminModules'),
+            'desc' => $this->l('Back to list')
+        )
+    );
+     
+    // Load current value
+		foreach($this->configKeys as $configKey => $propertyName)
+			$helper->fields_value[$configKey] = $this->{$propertyName};
+     
+    return $helper->generateForm($fields_form);
+}
 
 	public function hasProductDownload($cart)
 	{
@@ -689,8 +824,15 @@ class CashOnDelivery extends PaymentModule
 
 	public function countMyFee($order_total)
 	{
-		$perc = round(0.3 * $order_total);
-		return max(array(20,$perc));
+		error_log("\$order_total is $order_total\n", 3, __DIR__."/debug_countMyFee.log");
+		$offset = $this->feePerc !== false ? round($this->feePerc * $order_total) : $order_total;
+		if($this->feeMin !== false){
+			$offset = max(array($this->feeMin,$offset));
+		}
+		if($this->feeMax !== false){
+			$offset = min(array($this->feeMax,$offset));
+		}
+		return number_format($offset, 2);
 	} 
     
 }
