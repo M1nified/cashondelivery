@@ -132,20 +132,23 @@ public function displayForm()
                 'name' => 'COD_FEE_MIN',
                 'size' => 20,
                 'required' => false,
+								'placeholder' => 'E.g.: 20'
             ),
             array(
                 'type' => 'text',
                 'label' => $this->l('Maximum fee'),
                 'name' => 'COD_FEE_MAX',
                 'size' => 20,
-                'required' => false
+                'required' => false,
+								'placeholder' => 'E.g.: 30'
             ),
             array(
                 'type' => 'text',
                 'label' => $this->l('Fee in percent of total value, from 0 to 1'),
                 'name' => 'COD_FEE_PERC',
                 'size' => 20,
-                'required' => false
+                'required' => false,
+								'placeholder' => 'E.g.: 0.3'
             )
         ),
         'submit' => array(
