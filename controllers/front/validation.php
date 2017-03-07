@@ -58,8 +58,7 @@ class CashondeliveryValidationModuleFrontController extends ModuleFrontControlle
 			$cod = new CashOnDelivery();
 			error_log("Tools::getValue('confirm') is true\n", 3, __DIR__."/debug.log");
 			$customer = new Customer((int)$this->context->cart->id_customer);
-			$total = $this->context->cart->getOrderTotal(true, Cart::BOTH);
-			$total = $total + $cod->countMyFee($total);
+			$total = $this->context->cart->getOrderTotal(true, Cart::BOTH) + $cod->countMyFee($this->context->cart->getOrderTotal(true, Cart::ONLY_PRODUCTS));
 			error_log("\$total is $total\n", 3, __DIR__."/debug.log");
 			try{
 				$validationResult = $this->module->validateOrder((int)$this->context->cart->id, Configuration::get('PS_OS_PREPARATION'), $total, $this->module->displayName, null, array(), null, false, $customer->secure_key);
@@ -80,7 +79,7 @@ class CashondeliveryValidationModuleFrontController extends ModuleFrontControlle
 		parent::initContent();
 
 		$cod = new CashOnDelivery();
-		$total = $this->context->cart->getOrderTotal(true, Cart::BOTH) + $cod->countMyFee($total);
+		$total = $this->context->cart->getOrderTotal(true, Cart::BOTH) + $cod->countMyFee($this->context->cart->getOrderTotal(true, Cart::ONLY_PRODUCTS));
 
 		$this->context->smarty->assign(array(
 			'total' => $total,

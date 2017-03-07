@@ -384,13 +384,7 @@ public function displayForm()
                     $order->total_discounts = $order->total_discounts_tax_incl;
 
                       /////////////////////////////////////////////////////////////  
-                  //  if($this->feefree > 0 && $order->total_products > $this->feefree) {
-                  //       $fee=0;     
-                  //    }
-                  //    else {
-                  //        $fee=Tools::convertPrice($this->fee, $order->id_currency);            
-                  //   }
-                   $fee = $this->countMyFee($order->total_products);
+                   $fee = $this->countMyFee($this->context->cart->getOrderTotal(true, Cart::ONLY_PRODUCTS));
                      ///////////////////////////////////////////////////////////// 
                     
                     $order->total_shipping_tax_excl = (float)$this->context->cart->getPackageShippingCost((int)$id_carrier, false, null, $order->product_list)+$fee;;
