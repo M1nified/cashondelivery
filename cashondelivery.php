@@ -869,7 +869,7 @@ public function displayForm()
         }
     } 
 
-	public function countMyFee(Cart $cart)
+    public function countMyFee(Cart $cart)
 	{
         $order_total = $cart->getOrderTotal(true, Cart::ONLY_PRODUCTS);
         $total_weight = $cart->getTotalWeight();
@@ -888,7 +888,7 @@ public function displayForm()
                 $offset = min(array($this->feeMax,$offset));
             }
         }
-		return number_format($offset, 2);
-	} 
+        return number_format($offset, 2);
+    } 
     
 }
