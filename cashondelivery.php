@@ -49,7 +49,11 @@ class CashOnDelivery extends PaymentModule
 		$this->configKeys = array(
 			'COD_FEE_MIN' => 'feeMin',
 			'COD_FEE_MAX' => 'feeMax',
-			'COD_FEE_PERC' => 'feePerc'
+			'COD_FEE_PERC' => 'feePerc',
+            'COD_FEE_STATIC_BY_WEIGHT_1_CONDITION' => 'feeStaticByWeight1Condition',
+            'COD_FEE_STATIC_BY_WEIGHT_1_FROM' => 'feeStaticByWeight1From',
+            'COD_FEE_STATIC_BY_WEIGHT_1_TO' => 'feeStaticByWeight1To',
+            'COD_FEE_STATIC_BY_WEIGHT_1_PRICE' => 'feeStaticByWeight1Price',
 		);
 		foreach($this->configKeys as $configKey => $propertyName)
 		{
@@ -94,7 +98,8 @@ class CashOnDelivery extends PaymentModule
 			foreach($this->configKeys as $configKey => $propertyName)
 			{
 				$configValue = strval(Tools::getValue($configKey));
-				if(!$configValue || empty($configValue) || !Validate::isGenericName($configValue))
+                // var_dump($configValue);
+				if( $configValue != 0 && empty($configValue) || !Validate::isGenericName($configValue))
 				{
 					Configuration::deleteByName($configKey);
 					$this->{$propertyName} = false;
@@ -123,7 +128,7 @@ public function displayForm()
     // Init Fields form array
     $fields_form[0]['form'] = array(
         'legend' => array(
-            'title' => $this->l('Cash On Delivery Settings'),
+            'title' => $this->l('Cash On Delivery General Settings'),
         ),
         'input' => array(
             array(
@@ -132,7 +137,7 @@ public function displayForm()
                 'name' => 'COD_FEE_MIN',
                 'size' => 20,
                 'required' => false,
-								'placeholder' => 'E.g.: 20'
+                'placeholder' => 'E.g.: 20'
             ),
             array(
                 'type' => 'text',
@@ -140,7 +145,7 @@ public function displayForm()
                 'name' => 'COD_FEE_MAX',
                 'size' => 20,
                 'required' => false,
-								'placeholder' => 'E.g.: 30'
+                'placeholder' => 'E.g.: 30'
             ),
             array(
                 'type' => 'text',
@@ -148,7 +153,60 @@ public function displayForm()
                 'name' => 'COD_FEE_PERC',
                 'size' => 20,
                 'required' => false,
-								'placeholder' => 'E.g.: 0.3'
+                'placeholder' => 'E.g.: 0.3'
+            )
+        ),
+        'submit' => array(
+            'title' => $this->l('Save'),
+            'class' => 'btn btn-default'
+        )
+    );
+
+    $fields_form[1]['form'] = array(
+        'legend' => array(
+            'title' => $this->l('Fee based on weight'),
+        ),
+        'input' => array(
+            array(
+                'type' => 'switch',
+                'label' => $this->l('Is active?'),
+                'name' => 'COD_FEE_STATIC_BY_WEIGHT_1_CONDITION',
+                'required' => false,
+                'is_bool' => true,
+                'values' => [
+                    [
+                        'value' => 1,
+                        'label' => $this->l('On')
+                    ],
+                    [
+                        'value' => 0,
+                        'label' => $this->l('Off')
+                    ]
+                ]
+            ),
+            array(
+                'type' => 'text',
+                'label' => $this->l('Minimum weight (kg/lb)'),
+                'name' => 'COD_FEE_STATIC_BY_WEIGHT_1_FROM',
+                'size' => 20,
+                'required' => false,
+                'placeholder' => 'E.g.: 0'
+            ),
+            array(
+                'type' => 'text',
+                'label' => $this->l('Maximum weight (kg/lb)'),
+                'name' => 'COD_FEE_STATIC_BY_WEIGHT_1_TO',
+                'size' => 20,
+                'required' => false,
+                'placeholder' => 'E.g.: 130'
+            ),
+            array(
+                'type' => 'text',
+                'label' => $this->l('Static fee (overwrites General Settings)'),
+                'name' => 'COD_FEE_STATIC_BY_WEIGHT_1_PRICE',
+                'size' => 20,
+                'required' => false,
+                'placeholder' => 'E.g.: 10'
             )
         ),
         'submit' => array(
@@ -188,8 +246,8 @@ public function displayForm()
     );
      
     // Load current value
-		foreach($this->configKeys as $configKey => $propertyName)
-			$helper->fields_value[$configKey] = $this->{$propertyName};
+    foreach($this->configKeys as $configKey => $propertyName)
+        $helper->fields_value[$configKey] = $this->{$propertyName};
      
     return $helper->generateForm($fields_form);
 }
@@ -381,7 +439,7 @@ public function displayForm()
                     $order->total_discounts = $order->total_discounts_tax_incl;
 
                       /////////////////////////////////////////////////////////////  
-                   $fee = $this->countMyFee($this->context->cart->getOrderTotal(true, Cart::ONLY_PRODUCTS));
+                    $fee = $this->countMyFee($this->context->cart);
                      ///////////////////////////////////////////////////////////// 
                     
                     $order->total_shipping_tax_excl = (float)$this->context->cart->getPackageShippingCost((int)$id_carrier, false, null, $order->product_list)+$fee;;
@@ -811,15 +869,25 @@ public function displayForm()
         }
     } 
 
-	public function countMyFee($order_total)
+	public function countMyFee(Cart $cart)
 	{
-		$offset = $this->feePerc !== false ? round($this->feePerc * $order_total) : $order_total;
-		if($this->feeMin !== false){
-			$offset = max(array($this->feeMin,$offset));
-		}
-		if($this->feeMax !== false){
-			$offset = min(array($this->feeMax,$offset));
-		}
+        $order_total = $cart->getOrderTotal(true, Cart::ONLY_PRODUCTS);
+        $total_weight = $cart->getTotalWeight();
+        $offset = null;
+        if($this->feeStaticByWeight1Condition AND ( $this->feeStaticByWeight1From === null OR $this->feeStaticByWeight1From <= $total_weight ) AND ( $this->feeStaticByWeight1To === null OR $this->feeStaticByWeight1To >= $total_weight ) )
+        {
+            $offset = $this->feeStaticByWeight1Price;
+        }
+        else
+        {
+            $offset = $this->feePerc !== null ? ($this->feePerc * $order_total) : $order_total;
+            if($this->feeMin !== null){
+                $offset = max(array($this->feeMin,$offset));
+            }
+            if($this->feeMax !== null){
+                $offset = min(array($this->feeMax,$offset));
+            }
+        }
 		return number_format($offset, 2);
 	} 
     
